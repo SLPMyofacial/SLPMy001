@@ -42,7 +42,7 @@
 
     <script>
         // Replace this with your actual API key, this is getting nuts
-        const API_KEY = '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'; 
+        const API_KEY = process.env.YOUR_API_KEY;
 
         async function analyzeImage() {
             const imageInput = document.getElementById('imageInput');

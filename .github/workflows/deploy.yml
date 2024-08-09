@@ -12,7 +12,7 @@ jobs:
 
       - name: Replace API Key
         run: |
-          sed -i 's/YOUR_API_KEY/${{ secrets.API_KEY }}/g' index.html
+          sed -i "s/YOUR_API_KEY/'${{ secrets.API_KEY }}'/g" index.html
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@4.1.4

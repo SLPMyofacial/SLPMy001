@@ -3,157 +3,291 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SLP Diagnosis Assistant</title>
+    <title>Keyword Protected AI Diagnosis UI</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
             font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 0 auto;
+            background-color: #f8f9fa;
+            margin: 0;
             padding: 20px;
         }
-        #result, #imagePreview {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid #ddd;
-        }
-        #loading {
+        #protectedContent {
             display: none;
+        }
+        #keywordForm {
+            max-width: 300px;
+            margin: 100px auto;
+            text-align: center;
+        }
+        .scrollable {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .discussion-container {
+            height: auto;
+            overflow-y: auto;
+        }
+        .result-content, .discussion-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
         #imagePreview img {
             max-width: 100%;
             height: auto;
         }
-        .result-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .result-content {
-            white-space: pre-wrap;
+        .col-md-6 {
+            margin-top: 0;
         }
     </style>
 </head>
 <body>
-    <h1>SLP Diagnosis Assistant</h1>
-    <input type="file" id="imageInput" accept="image/*">
-    <button id="analyzeButton">Analyze Image</button>
-    <div id="imagePreview"></div>
-    <div id="loading">Analyzing image...</div>
-    <div id="result"></div>
+    <div id="keywordForm">
+        <h2>Enter Keyword</h2>
+        <input type="password" id="keywordInput" class="form-control" placeholder="Enter keyword">
+        <button type="button" class="btn btn-primary mt-3" onclick="checkKeyword()">Submit</button>
+        <div id="error" class="text-danger mt-2" style="display: none;">Incorrect keyword, please try again.</div>
+    </div>
+
+    <div id="protectedContent">
+        <div class="container">
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h2>SLPMyo Prototype 001</h2>
+                    <form>
+                        <div class="form-group">
+                            <label for="imageInput">Load Image</label>
+                            <input type="file" class="form-control-file" id="imageInput" accept="image/*">
+                        </div>
+                        <div id="imagePreview" class="scrollable border p-2"></div>
+                    </form>
+                </div>
+                <div class="col-md-6">
+                    <h2>AI Diagnosis</h2>
+                    <button type="button" class="btn btn-primary mb-2" id="analyzeButton">Analyze</button>
+                    <div id="loading" class="alert alert-info" style="display: none;">Analyzing image...</div>
+                    <div id="result" class="scrollable border p-2"></div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12">
+                    <h2>Discussion</h2>
+                    <div id="discussionContent" class="discussion-container border p-2"></div>
+                    <div class="input-group mt-2">
+                        <input type="text" id="chatInput" class="form-control" placeholder="Type your message...">
+                        <div class="input-group-append">
+                            <button type="button" class="btn btn-primary" id="sendButton">Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS, Popper.js, and jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
     <script>
-        // Replace this with your actual API key, this is getting nuts
-        const API_KEY = window.YOUR_API_KEY;
+        const correctKeyword = 'proto001';  
+        const API_KEY = window.YOUR_API_KEY;;
+        const discussionContent = document.getElementById('discussionContent');
+        let conversation = []; // To keep track of the chat history
+        let imageData = null; // Global variable to store the image data
+
+        function parseMarkdown(content) {
+            return content
+                .replace(/### (.*?)(\r?\n|$)/g, '<h3>$1</h3>')  // Converts '### ' to <h3> for headers
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Bold
+                .replace(/\*(.*?)\*/g, '<em>$1</em>');  // Italics
+        }
+
+        function checkKeyword() {
+            const enteredKeyword = document.getElementById('keywordInput').value;
+            if (enteredKeyword === correctKeyword) {
+                document.getElementById('keywordForm').style.display = 'none';
+                document.getElementById('protectedContent').style.display = 'block';
+            } else {
+                document.getElementById('error').style.display = 'block';
+            }
+        }
 
         async function analyzeImage() {
             const imageInput = document.getElementById('imageInput');
             const resultDiv = document.getElementById('result');
             const loadingDiv = document.getElementById('loading');
-            const imagePreviewDiv = document.getElementById('imagePreview');
             const file = imageInput.files[0];
 
             if (!file) {
-                resultDiv.innerHTML = '<p class="result-title">Error</p><p class="result-content">Please select an image first.</p>';
+                resultDiv.innerHTML = '<div class="alert alert-danger"><strong>Error:</strong> Please select an image first.</div>';
                 return;
             }
 
             loadingDiv.style.display = 'block';
             resultDiv.innerHTML = '';
-            imagePreviewDiv.innerHTML = '';
 
             const reader = new FileReader();
             reader.onload = async (e) => {
-                const img = new Image();
-                img.src = e.target.result;
-                img.onload = async () => {
-                    // Display the image
-                    imagePreviewDiv.innerHTML = `<img src="${e.target.result}" alt="Uploaded image">`;
+                const imageData = e.target.result.split(',')[1]; // Store the image data globally
 
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    const imageData = canvas.toDataURL('image/jpeg').split(',')[1];
-
-                    console.log('Image data length:', imageData.length);
-
-                    try {
-                        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${API_KEY}`,
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                model: "gpt-4o",
-                                messages: [
-                                    {
-                                        role: "user",
-                                        content: [
-                                            {
-                                                type: "text",
-                                                text: "Analyze this image of a mouth and provide an initial diagnosis for a speech language pathologist. Focus on visible issues that might affect speech."
-                                            },
-                                            {
-                                                type: "image_url",
-                                                image_url: {
-                                                    url: `data:image/jpeg;base64,${imageData}`
-                                                }
+                try {
+                    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${API_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            model: "gpt-4o",
+                            messages: [
+                                {
+                                    role: "user",
+                                    content: [
+                                        {
+                                            type: "text",
+                                            text: "Analyze this image of a mouth and provide an initial diagnosis for a speech language pathologist. Focus on visible issues that might affect speech."
+                                        },
+                                        {
+                                            type: "image_url",
+                                            image_url: {
+                                                url: `data:image/jpeg;base64,${imageData}`
                                             }
-                                        ]
-                                    }
-                                ],
-                                max_tokens: 300
-                            })
-                        });
+                                        }
+                                    ]
+                                }
+                            ],
+                            max_tokens: 600
+                        })
+                    });
 
-                        const data = await response.json();
-                        console.log('API Response:', data);
+                    const data = await response.json();
 
-                        if (!response.ok) {
-                            throw new Error(`HTTP error! status: ${response.status}, message: ${data.error?.message || 'Unknown error'}`);
-                        }
-
-                        if (data.choices && data.choices.length > 0 && data.choices[0].message) {
-                            resultDiv.innerHTML = `
-                                <p class="result-title">Analysis Result</p>
-                                <p class="result-content">${data.choices[0].message.content}</p>
-                            `;
-                        } else {
-                            throw new Error('Unexpected API response structure');
-                        }
-                    } catch (error) {
-                        console.error('Full error:', error);
-                        console.error('Response data:', data);
-                        resultDiv.innerHTML = `
-                            <p class="result-title">Error</p>
-                            <p class="result-content">Error analyzing image: ${error.message}</p>
-                        `;
-                    } finally {
-                        loadingDiv.style.display = 'none';
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}, message: ${data.error?.message || 'Unknown error'}`);
                     }
-                };
+
+                    if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+                        const aiMessage = parseMarkdown(data.choices[0].message.content);
+                        console.log(aiMessage); // Log the full response to check for truncation
+                        resultDiv.innerHTML = `
+                            <div class="alert alert-success">
+                                <p class="result-title">Analysis Result</p>
+                                <div class="result-content">${aiMessage}</div>
+                            </div>
+                        `;
+                    } else {
+                        throw new Error('Unexpected API response structure');
+                    }
+                } catch (error) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <strong>Error:</strong> ${error.message}
+                        </div>
+                    `;
+                } finally {
+                    loadingDiv.style.display = 'none';
+                }
             };
             reader.readAsDataURL(file);
         }
 
         document.getElementById('analyzeButton').addEventListener('click', analyzeImage);
 
-        // Add an event listener to the file input to display the image immediately after selection
         document.getElementById('imageInput').addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                const img = new Image();
-                img.src = e.target.result;
-                img.onload = () => {
-                    const imagePreviewDiv = document.getElementById('imagePreview');
-                    imagePreviewDiv.innerHTML = `<img src="${e.target.result}" alt="Uploaded image">`;
-                };
+                const imagePreviewDiv = document.getElementById('imagePreview');
+                imagePreviewDiv.innerHTML = `<img src="${e.target.result}" class="img-fluid" alt="Uploaded image">`;
+
+                imageData = e.target.result.split(',')[1]; // Store the base64 image data globally
             };
             reader.readAsDataURL(file);
+        });
+
+        async function sendMessage() {
+            const chatInput = document.getElementById('chatInput');
+            const userMessage = chatInput.value.trim();
+            if (!userMessage) return;
+
+            // Display user message
+            conversation.push({ role: "user", content: userMessage });
+            discussionContent.innerHTML += `<div><strong>You:</strong> ${parseMarkdown(userMessage)}</div>`;
+            chatInput.value = '';
+            discussionContent.scrollTop = discussionContent.scrollHeight;
+
+            // Prepare the messages array
+            const messages = [{ role: "user", content: userMessage }];
+
+            // Include the image data if it exists
+            if (imageData) {
+                messages.push({
+                    role: "user", 
+                    content: [
+                        {
+                            type: "text",
+                            text: userMessage
+                        },
+                        {
+                            type: "image_url",
+                            image_url: {
+                                url: `data:image/jpeg;base64,${imageData}`
+                            }
+                        }
+                    ]
+                });
+            }
+
+            // Send message to the AI system
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: "gpt-4o",
+                        messages: conversation.concat(messages),
+                        max_tokens: 600 
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${data.error?.message || 'Unknown error'}`);
+                }
+
+                if (data.choices && data.choices.length > 0 && data.choices[0].message) {
+                    const aiMessage = parseMarkdown(data.choices[0].message.content);
+                    conversation.push({ role: "assistant", content: aiMessage });
+                    discussionContent.innerHTML += `<div><strong>AI:</strong> ${aiMessage}</div>`;
+                    discussionContent.scrollTop = discussionContent.scrollHeight;
+                } else {
+                    throw new Error('Unexpected API response structure');
+                }
+            } catch (error) {
+                discussionContent.innerHTML += `
+                    <div class="alert alert-danger">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+                discussionContent.scrollTop = discussionContent.scrollHeight;
+            }
+        }
+
+        document.getElementById('sendButton').addEventListener('click', sendMessage);
+        document.getElementById('chatInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
         });
     </script>
 </body>

@@ -92,11 +92,40 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
     <script>
-        const correctKeyword = 'proto001';  
-        const API_KEY = window.YOUR_API_KEY;;
+        const correctKeyword = 'proto001';  // Replace 'yourKeyword' with the actual keyword
+	const API_KEY = window.YOUR_API_KEY;
         const discussionContent = document.getElementById('discussionContent');
         let conversation = []; // To keep track of the chat history
         let imageData = null; // Global variable to store the image data
+
+        // Define the prompt at the beginning for easy modification
+// Define the prompt at the beginning for easy modification
+const aiPrompt = `Examine the provided image of the patient's mouth. Focus on the following aspects based solely on this image:
+
+Lip and Mouth Symmetry:
+
+Assess the symmetry of the lips at rest. Check for evenness in the upper and lower lips, and any noticeable asymmetry in the corners of the mouth.
+
+Tongue Position and Appearance:
+
+Observe the tongue's position at rest. Identify any forward or low resting posture and note any visible signs of tongue-tie, such as restricted movement or a shortened frenum.
+Evaluate the surface of the tongue for any discoloration, swelling, or atrophy.
+
+Teeth and Bite:
+
+Evaluate the alignment of the teeth. Look for signs of malocclusion, such as overjet, underbite, or crowding.
+Identify any open bite or gaps between the upper and lower teeth when the mouth is at rest.
+
+Palate Observation:
+
+Assess the visible parts of the hard and soft palate. Note any deviations, discoloration, or abnormal shapes such as a bifid uvula.
+
+Signs of Dysfunction:
+
+Look for any visual indicators of Oromyofunctional Disorders (OMDs), such as mouth breathing (open mouth posture), reduced lip tone, or signs of drooling.
+Check for any evidence of articulation issues, like asymmetry in the movement of the mouth when speaking (if the image captures this).
+
+Based on these observations, generate a report highlighting any abnormalities or areas that may require further clinical evaluation.`;
 
         function parseMarkdown(content) {
             return content
@@ -130,8 +159,8 @@
             resultDiv.innerHTML = '';
 
             const reader = new FileReader();
-            reader.onload = async (e) => {
-                const imageData = e.target.result.split(',')[1]; // Store the image data globally
+            reader.onload = async function(e) {
+                const base64Image = e.target.result.split(',')[1]; // Store the image data globally
 
                 try {
                     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -148,12 +177,12 @@
                                     content: [
                                         {
                                             type: "text",
-                                            text: "Analyze the provided image of the mouth, focusing on both anatomical structures and soft tissue. For the speech-language pathologist, identify any visible issues such as misalignment, abnormal tongue posture, dental irregularities, or other anomalies that could impact speech production. Additionally, for the myofascial therapist, assess the condition of the soft tissues, including the lips, cheeks, tongue, and jaw muscles, and identify any signs of tension, asymmetry, or restricted movement that could influence speech, swallowing, or overall oral function. Provide an initial diagnosis or list potential concerns for both the speech-language pathologist and the myofascial therapist to consider."
+                                            text: aiPrompt  // Use the defined prompt variable
                                         },
                                         {
                                             type: "image_url",
                                             image_url: {
-                                                url: `data:image/jpeg;base64,${imageData}`
+                                                url: `data:image/jpeg;base64,${base64Image}`
                                             }
                                         }
                                     ]
@@ -196,12 +225,25 @@
 
         document.getElementById('analyzeButton').addEventListener('click', analyzeImage);
 
-        document.getElementById('imageInput').addEventListener('change', (event) => {
+        document.getElementById('imageInput').addEventListener('change', function(event) {
             const file = event.target.files[0];
             if (!file) return;
 
+            // Clear the AI diagnosis text
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = ''; // Clear the diagnosis section
+
+            const loadingDiv = document.getElementById('loading');
+            loadingDiv.style.display = 'none'; // Hide loading indicator if it was displayed
+
+            // Clear the discussion content and reset conversation history
+            const discussionContent = document.getElementById('discussionContent');
+            discussionContent.innerHTML = ''; // Clear the discussion section
+            conversation = []; // Reset the conversation array
+
+            // Display the new image
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = function(e) {
                 const imagePreviewDiv = document.getElementById('imagePreview');
                 imagePreviewDiv.innerHTML = `<img src="${e.target.result}" class="img-fluid" alt="Uploaded image">`;
 
